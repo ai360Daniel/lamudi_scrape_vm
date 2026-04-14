@@ -1,0 +1,9 @@
+# Ignorar llaves JSON y otros archivos sensibles
+*.json
+# Ignorar cache de python y archivos locales
+__pycache__/
+*.csv
+.env
+.ipynb_checkpoints/
+venv/
+.vscode/
