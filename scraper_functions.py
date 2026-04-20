@@ -80,10 +80,17 @@ def obtener_cliente_gcs():
     Returns:
         google.cloud.storage.Client: Cliente de GCS
     """
-    path_key = "guru-491919-ec54091ec0b6.json"
-    if os.path.exists(path_key):
-        print(f"🔑 Usando llave JSON: {path_key}")
-        return storage.Client.from_service_account_json(path_key, project=PROJECT_ID)
+    # Buscar el archivo en múltiples ubicaciones
+    posibles_rutas = [
+        "guru-491919-ec54091ec0b6.json",  # Carpeta actual
+        os.path.join(os.path.dirname(__file__), "guru-491919-ec54091ec0b6.json"),  # Misma carpeta del script
+        os.path.join(os.path.dirname(__file__), "..", "guru-491919-ec54091ec0b6.json"),  # Carpeta padre
+    ]
+    
+    for path_key in posibles_rutas:
+        if os.path.exists(path_key):
+            print(f"🔑 Usando llave JSON: {os.path.abspath(path_key)}")
+            return storage.Client.from_service_account_json(path_key, project=PROJECT_ID)
     
     print("📡 Usando Application Default Credentials (ADC)")
     return storage.Client(project=PROJECT_ID)
