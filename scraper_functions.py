@@ -236,7 +236,7 @@ def obtener_nombre_archivo(estado, tipo_propiedad=None, accion='for-sale'):
 # FUNCIONES DE SCRAPING
 # ============================================================================
 
-def scrape_lamudi(start_url, output_filename, usar_gcs=True, max_paginas=None):
+def scrape_lamudi(start_url, output_filename, usar_gcs=True, max_paginas=None, reintentos=3, timeout=60, reinicio_driver_cada=8):
     """
     Descarga propiedades de Lamudi desde la URL especificada.
     
@@ -254,9 +254,11 @@ def scrape_lamudi(start_url, output_filename, usar_gcs=True, max_paginas=None):
     chrome_options.add_argument("--headless")  # Activado para VMs
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage") # Recomendado para Docker/VMs
+    chrome_options.add_argument("--disable-dev-shm-usage")  # 🔥 CRÍTICO para VMs sin suficiente memoria
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
+    chrome_options.add_argument("--start-maximized")
+    chrome_options.add_argument("--disable-web-resources")  # Reducir uso de memoria
 
     # Inicializar el driver
     try:
@@ -272,12 +274,12 @@ def scrape_lamudi(start_url, output_filename, usar_gcs=True, max_paginas=None):
             print(f"❌ Error crítico al inicializar Chrome: {e2}")
             return 0
 
-    driver.set_page_load_timeout(7)  # Reducido de 30 a 15
-    driver.implicitly_wait(2)         # Reducido de 5 a 2
+    driver.set_page_load_timeout(timeout)  # 🔥 Usar timeout pasado como parámetro (60s default)
+    driver.implicitly_wait(15)  # Aumentado de 2 a 15
     
     # Lista para almacenar los datos
     data_list = []
-    wait = WebDriverWait(driver, 2)   # Reducido de 10 a 5
+    wait = WebDriverWait(driver, 15)  # Aumentado de 2 a 15
     total_propiedades = 0
     total_paginas = 0
     paginas_procesadas = 0
@@ -554,10 +556,34 @@ def scrape_lamudi(start_url, output_filename, usar_gcs=True, max_paginas=None):
                         print(f"      💾 Guardadas en archivo\n")
                     
                     data_list = []
+                
+                # 🔥 REINICIO DEL DRIVER CADA X PÁGINAS (soluciona timeout)
+                if paginas_procesadas % reinicio_driver_cada == 0 and paginas_procesadas > 0:
+                    print(f"\n🔄 REINICIANDO DRIVER EN PÁGINA {paginas_procesadas}...")
+                    try:
+                        driver.quit()
+                        time.sleep(2)
+                        # Reinicializar driver con mismas opciones
+                        driver = webdriver.Chrome(options=chrome_options)
+                        driver.set_page_load_timeout(timeout)
+                        driver.implicitly_wait(15)
+                        wait = WebDriverWait(driver, 15)
+                        print(f"✅ Driver reiniciado correctamente\n")
+                    except Exception as e:
+                        print(f"⚠️  Error reiniciando driver: {str(e)[:50]}")
+                
+                # ⏳ PAUSA ENTRE PÁGINAS (evita saturación del servidor)
+                time.sleep(3)
 
             except Exception as e:
-                print(f"Error de página: {str(e)}")
-                break
+                print(f"Error de página: {str(e)[:80]}")
+                # Reintentar la página si falla
+                if paginas_procesadas <= reintentos:
+                    print(f"🔄 Reintentando página {paginas_procesadas} ({paginas_procesadas}/{reintentos})...")
+                    time.sleep(5)
+                    continue
+                else:
+                    break
 
     except Exception as e:
         print(f"Error crítico: {str(e)}")
@@ -742,7 +768,7 @@ def reintentar_links_fallidos(failed_filename, nuevo_csv=None):
     return None
 
 
-def scrape_y_guardar_fallidos(start_url, output_filename, usar_gcs=True, max_paginas=None):
+def scrape_y_guardar_fallidos(start_url, output_filename, usar_gcs=True, max_paginas=None, **kwargs):
     """
     Ejecuta scraping y guarda automáticamente los links fallidos en JSON.
     
@@ -759,7 +785,8 @@ def scrape_y_guardar_fallidos(start_url, output_filename, usar_gcs=True, max_pag
     
     failed_links = []
     
-    scrape_lamudi(start_url, output_filename, usar_gcs=usar_gcs, max_paginas=max_paginas)
+    # Pasar parámetros de reintentos, timeout e reinicio del driver
+    scrape_lamudi(start_url, output_filename, usar_gcs=usar_gcs, max_paginas=max_paginas, **kwargs)
     
     if failed_links:
         guardar_links_fallidos(output_filename, failed_links, usar_gcs=usar_gcs)

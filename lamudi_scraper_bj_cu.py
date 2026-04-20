@@ -44,9 +44,9 @@ USAR_GCS = True  # Cambiar a False para guardar localmente
 MAX_PAGINAS_PRUEBA = None  # Definir número de páginas para probar. None para descargar todo.
 
 # 🔧 CONFIGURACIÓN DE REINTENTOS Y TIMEOUTS
-REINTENTOS_PAGINA = 3  # Reintentos por página que falla
-REINICIO_DRIVER_CADA = 15  # Reiniciar driver cada X páginas (soluciona 'invalid session id')
-TIMEOUT_PAGINA = 30  # Timeout en segundos para carga de página
+REINTENTOS_PAGINA = 5  # Reintentos por página que falla
+REINICIO_DRIVER_CADA = 8  # Reiniciar driver cada 8 páginas (más frecuente para VMs con poco RAM)
+TIMEOUT_PAGINA = 60  # Aumentado de 30 a 60 segundos
 
 
 # ============================================================================
