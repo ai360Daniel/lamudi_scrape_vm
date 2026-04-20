@@ -41,6 +41,11 @@ USAR_GCS = True  # Cambiar a False para guardar localmente
 # CONFIGURACIÓN DE PRUEBA (TESTING)
 MAX_PAGINAS_PRUEBA = None  # Definir número de páginas para probar. None para descargar todo.
 
+# 🔧 CONFIGURACIÓN DE REINTENTOS Y TIMEOUTS
+REINTENTOS_PAGINA = 5  # Reintentos por página que falla
+REINICIO_DRIVER_CADA = 8  # Reiniciar driver cada 8 páginas
+TIMEOUT_PAGINA = 20  # Timeout en segundos para carga de página
+
 
 from scraper_functions import (
     obtener_carpeta_anio_mes,
@@ -90,7 +95,15 @@ def main():
             
             try:
                 # Descargar datos
-                failed = scrape_y_guardar_fallidos(start_url, output_filename, usar_gcs=USAR_GCS, max_paginas=MAX_PAGINAS_PRUEBA)
+                failed = scrape_y_guardar_fallidos(
+                    start_url, 
+                    output_filename, 
+                    usar_gcs=USAR_GCS, 
+                    max_paginas=MAX_PAGINAS_PRUEBA,
+                    reintentos=REINTENTOS_PAGINA,
+                    timeout=TIMEOUT_PAGINA,
+                    reinicio_driver_cada=REINICIO_DRIVER_CADA
+                )
                 
                 # Limpiar y guardar
                 df_save = limpiar_df(output_filename, usar_gcs=USAR_GCS)
