@@ -43,7 +43,7 @@ MAX_PAGINAS_PRUEBA = None  # Definir número de páginas para probar. None para 
 # 🔧 CONFIGURACIÓN DE REINTENTOS Y TIMEOUTS
 REINTENTOS_PAGINA = 5  # Reintentos por página que falla
 REINICIO_DRIVER_CADA = 8  # Reiniciar driver cada 8 páginas
-TIMEOUT_PAGINA = 60  # Timeout en segundos para carga de página
+TIMEOUT_PAGINA = 20  # Timeout en segundos para carga de página
 
 
 from scraper_functions import (

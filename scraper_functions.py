@@ -236,7 +236,7 @@ def obtener_nombre_archivo(estado, tipo_propiedad=None, accion='for-sale'):
 # FUNCIONES DE SCRAPING
 # ============================================================================
 
-def scrape_lamudi(start_url, output_filename, usar_gcs=True, max_paginas=None, reintentos=3, timeout=60, reinicio_driver_cada=8):
+def scrape_lamudi(start_url, output_filename, usar_gcs=True, max_paginas=None, reintentos=3, timeout=20, reinicio_driver_cada=8):
     """
     Descarga propiedades de Lamudi desde la URL especificada.
     
