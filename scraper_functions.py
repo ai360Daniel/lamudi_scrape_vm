@@ -334,9 +334,11 @@ def scrape_lamudi(start_url, output_filename, usar_gcs=True, max_paginas=None, r
 
         page_number = 1
         usar_boton = False  # Flag para intentar con botón si falla el método de página
+        intentos_navegacion = 0  # Contador de intentos por página
 
         while True:
             paginas_procesadas += 1
+            intentos_navegacion = 0  # Resetear intentos para nueva página
             
             # Limitar por max_paginas si está definido
             if max_paginas and paginas_procesadas > max_paginas:
@@ -347,42 +349,60 @@ def scrape_lamudi(start_url, output_filename, usar_gcs=True, max_paginas=None, r
                 print(f"✓ Límite de páginas alcanzado ({total_paginas})")
                 break
 
-            # Estrategia 1: Intentar con ?page=N
-            if not usar_boton:
-                try:
-                    if "?" in start_url:
-                        page_url = start_url + f"&page={page_number}"
-                    else:
-                        page_url = start_url + f"?page={page_number}"
-                    
-                    print(f"\n🌐 P{paginas_procesadas}: Cargando...")
-                    driver.get(page_url)
-                    print(f"   ✅ Página cargada")
-                    page_number += 1
-                    
-                except Exception as e:
-                    print(f"⚠ Método ?page= falló. Intentando con botón...")
-                    usar_boton = True
-                    continue
-
-            # Estrategia 2: Usar botón de siguiente página (fallback)
-            if usar_boton:
-                try:
-                    next_button = driver.find_element(By.CSS_SELECTOR, "a#pagination-next")
-                    next_url = next_button.get_attribute("href")
-                    if next_url:
-                        print(f"\n🌐 P{paginas_procesadas}: Siguiendo botón...")
-                        driver.get(next_url)
+            # Reintentar navegación hasta max reintentos
+            while intentos_navegacion < reintentos:
+                intentos_navegacion += 1
+                
+                # Estrategia 1: Intentar con ?page=N
+                if not usar_boton:
+                    try:
+                        if "?" in start_url:
+                            page_url = start_url + f"&page={page_number}"
+                        else:
+                            page_url = start_url + f"?page={page_number}"
+                        
+                        print(f"\n🌐 P{paginas_procesadas}: Cargando... (Intento {intentos_navegacion}/{reintentos})")
+                        driver.get(page_url)
                         print(f"   ✅ Página cargada")
-                    else:
-                        print(f"✓ Sin página siguiente. Fin en página {paginas_procesadas}")
-                        break
-                except NoSuchElementException:
-                    print(f"✓ Última página alcanzada ({paginas_procesadas})")
-                    break
-                except Exception as e:
-                    print(f"⚠ Error en navegación: {str(e)[:50]}. Finalizando...")
-                    break
+                        page_number += 1
+                        break  # Salir del while de reintentos si funciona
+                        
+                    except Exception as e:
+                        if intentos_navegacion >= reintentos:
+                            print(f"⚠ Método ?page= falló {reintentos} veces. Intentando con botón...")
+                            usar_boton = True
+                            intentos_navegacion = 0  # Resetear para intentos de botón
+                        else:
+                            print(f"⚠ Método ?page= falló. Reintentando...")
+                            time.sleep(3)
+                            continue
+
+                # Estrategia 2: Usar botón de siguiente página (fallback)
+                if usar_boton:
+                    try:
+                        next_button = driver.find_element(By.CSS_SELECTOR, "a#pagination-next")
+                        next_url = next_button.get_attribute("href")
+                        if next_url:
+                            print(f"\n🌐 P{paginas_procesadas}: Siguiendo botón... (Intento {intentos_navegacion}/{reintentos})")
+                            driver.get(next_url)
+                            print(f"   ✅ Página cargada")
+                            break  # Salir del while de reintentos si funciona
+                        else:
+                            print(f"✓ Sin página siguiente. Fin en página {paginas_procesadas}")
+                            raise StopIteration  # Salir del loop principal
+                    except StopIteration:
+                        raise
+                    except NoSuchElementException:
+                        print(f"✓ Última página alcanzada ({paginas_procesadas})")
+                        raise StopIteration  # Salir del loop principal
+                    except Exception as e:
+                        if intentos_navegacion < reintentos:
+                            print(f"⚠ Error en navegación: {str(e)[:50]}. Reintentando...")
+                            time.sleep(3)
+                            continue
+                        else:
+                            print(f"⚠ Error en navegación después de {reintentos} intentos. Saltando página...")
+                            break  # Salir del while para pasar a siguiente página
 
             try:
                 print(f"   🔍 Buscando propiedades...")
@@ -575,15 +595,15 @@ def scrape_lamudi(start_url, output_filename, usar_gcs=True, max_paginas=None, r
                 # ⏳ PAUSA ENTRE PÁGINAS (evita saturación del servidor)
                 time.sleep(3)
 
+            except StopIteration:
+                print(f"✓ Fin de descarga alcanzado")
+                break
             except Exception as e:
                 print(f"Error de página: {str(e)[:80]}")
-                # Reintentar la página si falla
-                if paginas_procesadas <= reintentos:
-                    print(f"🔄 Reintentando página {paginas_procesadas} ({paginas_procesadas}/{reintentos})...")
-                    time.sleep(5)
-                    continue
-                else:
-                    break
+                # Continuar con siguiente página en lugar de detener
+                print(f"🔄 Continuando con siguiente página...")
+                time.sleep(3)
+                continue
 
     except Exception as e:
         print(f"Error crítico: {str(e)}")
